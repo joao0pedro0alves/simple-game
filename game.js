@@ -208,7 +208,7 @@ function resetGame() {
   life = maxLife
   displayedLife = maxLife
   dragons = [createDragon(canvas.width / 2, canvas.height - 115)]
-  currentState = GAME_STATE.PLAYING
+  currentState = GAME_STATE.START
 }
 
 /* =======================
@@ -290,7 +290,7 @@ canvas.addEventListener('click', (event) => {
     const pos = randomDragonPosition()
     dragons.push(createDragon(pos.x, pos.y))
 
-    syncDragonsWithLife()
+    // syncDragonsWithLife()
   }
 
   if (life === 0) {
@@ -313,7 +313,6 @@ function gameLoop() {
 
     soundtrack.loop = true
     soundtrack.play()
-    // soundtrackPlaying = true
   }
 
   if (currentState === GAME_STATE.PLAYING) {
@@ -329,7 +328,6 @@ function gameLoop() {
     drawGameOverHUD()
 
     soundtrack.pause()
-    // soundtrackPlaying = false
   }
 
   requestAnimationFrame(gameLoop)
