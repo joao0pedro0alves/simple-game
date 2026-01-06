@@ -24,8 +24,11 @@ let currentState = GAME_STATE.START
 ======================= */
 const hitSound = new Audio('./assets/sounds/quick-cut.mp3')
 const deathSound = new Audio('./assets/sounds/death-scream.wav')
+const soundtrack = new Audio('./assets/sounds/soundtrack.mp3')
+
 hitSound.volume = 0.6
 deathSound.volume = 0.8
+soundtrack.volume = 0.6
 
 /* =======================
   SPRITE
@@ -247,6 +250,9 @@ function gameLoop() {
 
   if (currentState === GAME_STATE.START) {
     drawStartHUD()
+
+    soundtrack.currentTime = 0
+    soundtrack.play()
   }
 
   if (currentState === GAME_STATE.PLAYING) {
@@ -259,6 +265,8 @@ function gameLoop() {
     drawLifeBar()
     drawPlayer()
     drawGameOverHUD()
+
+    soundtrack.pause()
   }
 
   requestAnimationFrame(gameLoop)
