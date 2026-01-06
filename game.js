@@ -18,6 +18,7 @@ const GAME_STATE = {
 }
 
 let currentState = GAME_STATE.START
+// let soundtrackPlaying = false
 
 /* =======================
   SOUND EFFECTS
@@ -28,7 +29,7 @@ const soundtrack = new Audio('./assets/sounds/soundtrack.mp3')
 
 hitSound.volume = 0.6
 deathSound.volume = 0.8
-soundtrack.volume = 0.6
+soundtrack.volume = 0.25
 
 /* =======================
   SPRITE
@@ -36,16 +37,21 @@ soundtrack.volume = 0.6
 const sprite = new Image()
 sprite.src = './assets/dragon-sprite.png'
 
-const player = {
-  x: canvas.width / 2,
-  y: canvas.height - 100,
-  width: 100,
-  height: 100,
-  frame: 0,
-  frameCount: 3,
-  frameSpeed: 0.05,
-  frameTimer: 0,
+function createDragon(x, y) {
+  return {
+    x,
+    y,
+    width: 100,
+    height: 100,
+    frame: 0,
+    frameCount: 3,
+    frameSpeed: 0.05,
+    frameTimer: 0,
+    alive: true,
+  }
 }
+
+let dragons = [createDragon(canvas.width / 2, canvas.height - 115)]
 
 /* =======================
   BACKGROUND
@@ -80,38 +86,58 @@ function drawLifeBar() {
 }
 
 /* =======================
-  PLAYER
+  DRAGON
 ======================= */
-function updatePlayer() {
-  player.frameTimer += player.frameSpeed
-  if (player.frameTimer >= 1) {
-    player.frame = (player.frame + 1) % player.frameCount
-    player.frameTimer = 0
+
+function syncDragonsWithLife() {
+  const required = requiredDragonCount()
+
+  while (dragons.length < required) {
+    const pos = randomDragonPosition()
+    dragons.push(createDragon(pos.x, pos.y))
   }
 }
 
-function drawPlayer() {
-  ctx.drawImage(
-    sprite,
-    player.frame * player.width,
-    0,
-    player.width,
-    player.height,
-    player.x - player.width / 2,
-    player.y - player.height,
-    player.width,
-    player.height
-  )
+function requiredDragonCount() {
+  if (life > 70) return 1
+  if (life > 40) return 2
+  if (life > 10) return 3
+  return 4
+}
 
-  // DEBUG HITBOX (opcional)
-  ctx.strokeStyle = 'transparent'
+function randomDragonPosition() {
+  return {
+    x: Math.random() * (canvas.width - 200) + 100,
+    y: canvas.height - 115,
+  }
+}
 
-  ctx.strokeRect(
-    player.x - player.width / 2,
-    player.y - player.height,
-    player.width,
-    player.height
-  )
+function updateDragons() {
+  dragons.forEach((dragon) => {
+    dragon.frameTimer += dragon.frameSpeed
+    if (dragon.frameTimer >= 1) {
+      dragon.frame = (dragon.frame + 1) % dragon.frameCount
+      dragon.frameTimer = 0
+    }
+  })
+}
+
+function drawDragons() {
+  dragons.forEach((dragon) => {
+    if (!dragon.alive) return
+
+    ctx.drawImage(
+      sprite,
+      dragon.frame * dragon.width,
+      0,
+      dragon.width,
+      dragon.height,
+      dragon.x - dragon.width / 2,
+      dragon.y - dragon.height,
+      dragon.width,
+      dragon.height
+    )
+  })
 }
 
 /* =======================
@@ -170,12 +196,18 @@ function getRestartButton() {
 
 function endGame() {
   currentState = GAME_STATE.GAME_OVER
+  dragons = []
 }
 
 function resetGame() {
+  // life = maxLife
+  // displayedLife = maxLife
+  // player.frame = 0
+  // currentState = GAME_STATE.PLAYING
+
   life = maxLife
   displayedLife = maxLife
-  player.frame = 0
+  dragons = [createDragon(canvas.width / 2, canvas.height - 115)]
   currentState = GAME_STATE.PLAYING
 }
 
@@ -212,25 +244,53 @@ canvas.addEventListener('click', (event) => {
   // GAME PLAYING
   if (currentState !== GAME_STATE.PLAYING) return
 
-  const hitbox = {
-    x: player.x - player.width / 2,
-    y: player.y - player.height,
-    w: player.width,
-    h: player.height,
-  }
+  let hitAny = false
 
-  const collided =
-    mouseX >= hitbox.x &&
-    mouseX <= hitbox.x + hitbox.w &&
-    mouseY >= hitbox.y &&
-    mouseY <= hitbox.y + hitbox.h
+  dragons.forEach((dragon) => {
+    if (!dragon.alive) return
 
-  if (collided) {
+    const hitbox = {
+      x: dragon.x - dragon.width / 2,
+      y: dragon.y - dragon.height,
+      w: dragon.width,
+      h: dragon.height,
+    }
+
+    const collided =
+      mouseX >= hitbox.x &&
+      mouseX <= hitbox.x + hitbox.w &&
+      mouseY >= hitbox.y &&
+      mouseY <= hitbox.y + hitbox.h
+
+    if (collided) {
+      hitAny = true
+
+      dragon.alive = false // elimina essa cópia
+      hitSound.currentTime = 0
+      hitSound.play()
+
+      // Move os outros
+      dragons.forEach((d) => {
+        if (d.alive) {
+          const pos = randomDragonPosition()
+          d.x = pos.x
+          d.y = pos.y
+        }
+      })
+    }
+  })
+
+  const aliveDragons = dragons.filter((d) => d.alive)
+
+  if (hitAny && aliveDragons.length === 0) {
     life -= 10
     if (life < 0) life = 0
 
-    hitSound.currentTime = 0
-    hitSound.play()
+    dragons = []
+    const pos = randomDragonPosition()
+    dragons.push(createDragon(pos.x, pos.y))
+
+    syncDragonsWithLife()
   }
 
   if (life === 0) {
@@ -251,22 +311,25 @@ function gameLoop() {
   if (currentState === GAME_STATE.START) {
     drawStartHUD()
 
-    soundtrack.currentTime = 0
+    soundtrack.loop = true
     soundtrack.play()
+    // soundtrackPlaying = true
   }
 
   if (currentState === GAME_STATE.PLAYING) {
     drawLifeBar()
-    updatePlayer()
-    drawPlayer()
+
+    updateDragons()
+    drawDragons()
   }
 
   if (currentState === GAME_STATE.GAME_OVER) {
     drawLifeBar()
-    drawPlayer()
+    drawDragons()
     drawGameOverHUD()
 
     soundtrack.pause()
+    // soundtrackPlaying = false
   }
 
   requestAnimationFrame(gameLoop)
